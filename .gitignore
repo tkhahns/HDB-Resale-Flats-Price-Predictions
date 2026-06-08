@@ -1,10 +1,22 @@
-src/**/__pycache__
-tests/__pycache__
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Pipeline run artifacts (date-partitioned outputs written by pipeline.py)
+models/
+reports/
+
+# Data files
 data/interim/*.csv
 data/processed/*.csv
-reports/*.pkl
-reports/*.csv
-reports/*.html
-reports/*.png
-__pycache__
-*.pyc
+
+# Environment
+.env
+.env.*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
