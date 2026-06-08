@@ -286,6 +286,16 @@ def _run_train(
     fi_df = summarise_feature_importance(ensemble)
     fi_df.to_csv(f"{reports_dir}/feature_importance.csv", index=False)
 
+    # Capture latest macro values for API real-time feature assembly
+    latest_macro: dict = {}
+    try:
+        from src.avm.ingest.macro import load_macro_from_csv
+        macro_df = load_macro_from_csv(cfg["data"]["macro_data"])
+        latest_row = macro_df.sort_values("month").iloc[-1].to_dict()
+        latest_macro = {k: (str(v) if hasattr(v, "isoformat") else v) for k, v in latest_row.items()}
+    except Exception:
+        pass
+
     # Save complete model bundle (ensemble + preprocessor + metadata)
     models_prefix = cfg["data"]["models_prefix"]
     bundle = AVMModelBundle(
@@ -293,7 +303,7 @@ def _run_train(
         preprocessor=preprocessor,
         feature_names=feature_names,
         collinearity_dropped=dropped_cols,
-        manifest={"run_date": run_date, "metrics": ens_metrics},
+        manifest={"run_date": run_date, "metrics": ens_metrics, "latest_macro": latest_macro},
     )
     bundle.save_bundle(models_prefix)
 

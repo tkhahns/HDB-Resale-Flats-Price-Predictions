@@ -1,0 +1,126 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        type: choice
+        options: [prod, dev]
+        default: prod
+
+permissions:
+  id-token: write  # OIDC — no long-lived AWS keys
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  TF_VERSION: "1.7.5"
+
+jobs:
+  build-push:
+    name: Build & push ECR images
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build base image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.base \
+            -t hdb-avm-base:${{ steps.meta.outputs.tag }} .
+
+      - name: Build & push batch image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPO: hdb-avm-batch
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.batch \
+            --build-arg BASE_IMAGE=hdb-avm-base:${TAG} \
+            -t ${REGISTRY}/${REPO}:${TAG} \
+            -t ${REGISTRY}/${REPO}:latest .
+          docker push ${REGISTRY}/${REPO}:${TAG}
+          docker push ${REGISTRY}/${REPO}:latest
+
+      - name: Build & push API image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPO: hdb-avm-api
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.api \
+            --build-arg BASE_IMAGE=hdb-avm-base:${TAG} \
+            -t ${REGISTRY}/${REPO}:${TAG} \
+            -t ${REGISTRY}/${REPO}:latest .
+          docker push ${REGISTRY}/${REPO}:${TAG}
+          docker push ${REGISTRY}/${REPO}:latest
+
+  terraform:
+    name: Terraform apply
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - run: terraform init
+      - run: terraform fmt -check
+      - run: terraform validate
+      - run: terraform plan -out=tfplan
+      - run: terraform apply -auto-approve tfplan
+
+  deploy-api:
+    name: Force new API deployment
+    runs-on: ubuntu-latest
+    needs: terraform
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster hdb-avm \
+            --service hdb-avm-api \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}

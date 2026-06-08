@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+# Batch pipeline container — runs the full AVM pipeline as a one-shot ECS task.
+# Build for linux/amd64 to match AWS Fargate.
+#
+# docker build -f docker/Dockerfile.batch -t hdb-avm-batch .
+# docker run --rm -e AVM_ARTIFACTS_BUCKET=my-bucket hdb-avm-batch --all --synthetic
+ARG BASE_IMAGE=hdb-avm-base:latest
+FROM ${BASE_IMAGE}
+
+ENTRYPOINT ["python", "-m", "src.avm.pipeline"]
+CMD ["--all"]
