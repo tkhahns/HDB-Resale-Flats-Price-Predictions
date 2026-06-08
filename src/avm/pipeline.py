@@ -61,6 +61,7 @@ def _load_config(path: str = "config/pipeline.yaml") -> dict:
 # Stage helpers
 # ---------------------------------------------------------------------------
 
+
 def _run_ingest(cfg: dict, synthetic: bool, run_date: str | None = None) -> pd.DataFrame:
     from src.avm.features.building import merge_property_info
     from src.avm.features.spatial import (

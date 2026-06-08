@@ -40,15 +40,24 @@ def fetch_from_datagov(
             try:
                 resp = requests.get(
                     _DATAGOV_API,
-                    params={"resource_id": _DATAGOV_RESOURCE_ID, "limit": _PAGE_LIMIT, "offset": offset},
+                    params={
+                        "resource_id": _DATAGOV_RESOURCE_ID,
+                        "limit": _PAGE_LIMIT,
+                        "offset": offset,
+                    },
                     timeout=30,
                 )
                 resp.raise_for_status()
                 break
             except requests.exceptions.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code == 429:
-                    wait = 2 ** attempt * 5
-                    logger.warning("Rate limited at offset %d — retrying in %ds (attempt %d/5)", offset, wait, attempt + 1)
+                    wait = 2**attempt * 5
+                    logger.warning(
+                        "Rate limited at offset %d — retrying in %ds (attempt %d/5)",
+                        offset,
+                        wait,
+                        attempt + 1,
+                    )
                     time.sleep(wait)
                 else:
                     raise

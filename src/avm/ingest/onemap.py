@@ -66,8 +66,12 @@ def geocode_schools(schools_df: pd.DataFrame, name_col: str = "school_name") -> 
         if len(missing_idx):
             retry_queries = out.loc[missing_idx, "postal_code"].astype(str).tolist()
             retry_results = asyncio.run(_batch_geocode(retry_queries))
-            out.loc[missing_idx, "lat"] = [r[0] if r[0] is not None else np.nan for r in retry_results]
-            out.loc[missing_idx, "long"] = [r[1] if r[1] is not None else np.nan for r in retry_results]
+            out.loc[missing_idx, "lat"] = [
+                r[0] if r[0] is not None else np.nan for r in retry_results
+            ]
+            out.loc[missing_idx, "long"] = [
+                r[1] if r[1] is not None else np.nan for r in retry_results
+            ]
 
     return out
 
