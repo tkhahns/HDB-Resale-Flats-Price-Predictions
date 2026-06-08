@@ -17,7 +17,8 @@ _PAGE_LIMIT = 1000
 
 def load_from_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
-    df["month"] = pd.to_datetime(df["month"], format="%Y-%m")
+    df["month"] = pd.to_datetime(df["month"], format="mixed", dayfirst=False)
+    df["month"] = df["month"].dt.to_period("M").dt.to_timestamp()
     logger.info("Loaded %d transactions from %s", len(df), path)
     return df
 
@@ -35,19 +36,31 @@ def fetch_from_datagov(
 
     logger.info("Fetching transactions from data.gov.sg (this may take a few minutes)…")
     while True:
-        resp = requests.get(
-            _DATAGOV_API,
-            params={"resource_id": _DATAGOV_RESOURCE_ID, "limit": _PAGE_LIMIT, "offset": offset},
-            timeout=30,
-        )
-        resp.raise_for_status()
+        for attempt in range(5):
+            try:
+                resp = requests.get(
+                    _DATAGOV_API,
+                    params={"resource_id": _DATAGOV_RESOURCE_ID, "limit": _PAGE_LIMIT, "offset": offset},
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                break
+            except requests.exceptions.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    wait = 2 ** attempt * 5
+                    logger.warning("Rate limited at offset %d — retrying in %ds (attempt %d/5)", offset, wait, attempt + 1)
+                    time.sleep(wait)
+                else:
+                    raise
+        else:
+            raise RuntimeError(f"Gave up fetching at offset {offset} after 5 rate-limit retries")
         page = resp.json()["result"]["records"]
         if not page:
             break
         records.extend(page)
         offset += _PAGE_LIMIT
         logger.debug("Fetched %d records so far", len(records))
-        time.sleep(0.1)
+        time.sleep(0.3)
 
     df = pd.DataFrame(records)
     df["month"] = pd.to_datetime(df["month"], format="%Y-%m")

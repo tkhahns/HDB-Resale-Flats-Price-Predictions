@@ -1,0 +1,32 @@
+school_name,mainlevel_code,lat,long,sap_ind,autonomous_ind,gifted_ind,ip_ind,postal_code
+Raffles Institution,SECONDARY,1.3102,103.8202,Yes,Yes,Yes,Yes,574645
+Hwa Chong Institution,SECONDARY,1.3260,103.8048,Yes,Yes,Yes,Yes,269734
+Nanyang Girls High School,SECONDARY,1.3197,103.8059,Yes,Yes,Yes,Yes,269746
+National Junior College,SECONDARY,1.3195,103.8047,No,Yes,Yes,Yes,269588
+Anglo-Chinese School Independent,SECONDARY,1.3145,103.8147,No,Yes,No,Yes,309911
+Dunman High School,SECONDARY,1.3057,103.8863,No,Yes,Yes,Yes,437655
+Victoria School,SECONDARY,1.3461,103.8980,No,Yes,No,Yes,388732
+River Valley High School,SECONDARY,1.2929,103.8065,No,No,No,No,179023
+Catholic High School,SECONDARY,1.3512,103.8481,No,Yes,No,No,579602
+St Joseph Institution,SECONDARY,1.2978,103.8495,No,Yes,No,Yes,178816
+Tanjong Katong Girls School,SECONDARY,1.3094,103.9023,No,No,No,No,437152
+Temasek Secondary School,SECONDARY,1.3369,103.9432,No,No,No,No,506960
+Bishan Park Secondary School,SECONDARY,1.3588,103.8427,No,No,No,No,578943
+Anglican High School,SECONDARY,1.3320,103.9054,No,Yes,No,No,559916
+Cedar Girls Secondary School,SECONDARY,1.3604,103.8733,No,No,No,No,533707
+Raffles Girls School,PRIMARY,1.3072,103.8152,Yes,Yes,No,No,596664
+Ai Tong School,PRIMARY,1.3522,103.8481,No,No,No,No,578939
+Henry Park Primary School,PRIMARY,1.3139,103.7832,No,Yes,No,No,596244
+Nanhua Primary School,PRIMARY,1.3315,103.7745,No,No,No,No,598812
+Rosyth School,PRIMARY,1.3698,103.8718,No,No,No,No,547896
+Fairfield Methodist School Primary,PRIMARY,1.2826,103.8065,No,No,No,No,169456
+Catholic High School Primary,PRIMARY,1.3512,103.8481,No,Yes,No,No,579602
+Methodist Girls School Primary,PRIMARY,1.2926,103.8137,No,Yes,No,No,168732
+Singapore Chinese Girls School,PRIMARY,1.3005,103.8403,No,Yes,No,No,228074
+Maha Bodhi School,PRIMARY,1.3067,103.8534,No,No,No,No,188993
+Tao Nan School,PRIMARY,1.2984,103.9121,No,Yes,No,No,428898
+CHIJ St Nicholas Girls School,MIXED LEVELS,1.3698,103.8351,Yes,Yes,No,Yes,573956
+St Margaret Secondary School,MIXED LEVELS,1.3005,103.8494,No,No,No,No,228074
+Nan Hua High School,MIXED LEVELS,1.3315,103.7745,No,Yes,No,No,598812
+Chung Cheng High School Main,MIXED LEVELS,1.3070,103.8862,No,No,No,No,437695
+Paya Lebar Methodist Girls School,MIXED LEVELS,1.3225,103.8945,No,No,No,No,409014

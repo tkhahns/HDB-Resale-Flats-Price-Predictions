@@ -61,8 +61,7 @@ def _load_config(path: str = "config/pipeline.yaml") -> dict:
 # Stage helpers
 # ---------------------------------------------------------------------------
 
-
-def _run_ingest(cfg: dict, synthetic: bool) -> pd.DataFrame:
+def _run_ingest(cfg: dict, synthetic: bool, run_date: str | None = None) -> pd.DataFrame:
     from src.avm.features.building import merge_property_info
     from src.avm.features.spatial import (
         add_elite_flags,
@@ -97,7 +96,8 @@ def _run_ingest(cfg: dict, synthetic: bool) -> pd.DataFrame:
     if storage.exists(raw_path):
         df = load_from_csv(raw_path)
     else:
-        df = fetch_from_datagov(raw_path)
+        end_date = pd.Timestamp(run_date).strftime("%Y-%m") if run_date else "2024-03"
+        df = fetch_from_datagov(raw_path, end_date=end_date)
 
     # Geocode unique buildings
     unique_buildings = df[["block", "street_name"]].drop_duplicates().reset_index(drop=True)
@@ -446,12 +446,13 @@ def main(argv: list[str] | None = None) -> None:
     cfg["data"]["models_latest_json"] = f"{base_models}/latest.json"
 
     storage.makedirs(cfg["data"]["reports_dir"])
+    logger.info("Run date: %s", run_date)
 
     run_all = args.all
 
     # --- Ingest ---
     if run_all or args.ingest:
-        df = _run_ingest(cfg, synthetic=args.synthetic)
+        df = _run_ingest(cfg, synthetic=args.synthetic, run_date=run_date)
     else:
         interim = cfg["data"]["interim_combined"]
         if not storage.exists(interim):
