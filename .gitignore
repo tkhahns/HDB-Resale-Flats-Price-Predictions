@@ -1,0 +1,10 @@
+src/**/__pycache__
+tests/__pycache__
+data/interim/*.csv
+data/processed/*.csv
+reports/*.pkl
+reports/*.csv
+reports/*.html
+reports/*.png
+__pycache__
+*.pyc

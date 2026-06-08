@@ -1,0 +1,71 @@
+data:
+  train_cutoff: "2023-09"
+  raw_transactions: "data/raw/resale_transactions.csv"
+  building_info: "data/raw/building_info.csv"
+  mrt_data: "data/raw/mrt_lrt_data.csv"
+  schools_data: "data/raw/schools.csv"
+  hdb_property: "data/raw/HDBPropertyInformation.csv"
+  macro_data: "data/external/macro/macro_features.csv"
+  interim_combined: "data/interim/df_combined.csv"
+  processed_train: "data/processed/df_train.csv"
+  processed_test: "data/processed/df_test.csv"
+  reports_dir: "reports"
+
+features:
+  cols_to_drop:
+    - bldg_contract_town
+    - latitude
+    - longitude
+    - lease_commence_date
+    - year_completed
+  yn_cols:
+    - residential
+    - commercial
+    - market_hawker
+    - miscellaneous
+    - multistorey_carpark
+    - precinct_pavilion
+  id_cols:
+    - block
+    - street_name
+  target: resale_price
+  macro_lag_months: 1
+
+validation:
+  vif_threshold: 10.0
+  correlation_threshold: 0.85
+  price_min: 50000
+  price_max: 2000000
+  floor_area_min: 30
+  floor_area_max: 250
+  remaining_lease_min_months: 480
+  remaining_lease_max_months: 1200
+  geocoding_coverage_min: 0.99
+  psi_threshold: 0.2
+
+backtest:
+  step_months: 6
+  min_train_months: 18
+
+models:
+  lgbm:
+    colsample_bytree: 0.8
+    learning_rate: 0.15
+    min_child_weight: 1
+    n_estimators: 128
+    num_leaves: 72
+    reg_lambda: 0.5
+    n_jobs: -1
+    verbose: -1
+  xgboost:
+    colsample_bytree: 0.8
+    gamma: 0.3
+    learning_rate: 0.2
+    min_child_weight: 2
+    n_estimators: 300
+    reg_lambda: 0.45
+    subsample: 1
+    n_jobs: -1
+  ensemble_weights:
+    lgbm: 0.5
+    xgboost: 0.5
