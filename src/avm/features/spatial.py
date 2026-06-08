@@ -27,9 +27,16 @@ def _nearest_geodesic(
 
 def compute_mrt_features(buildings_df: pd.DataFrame, mrt_df: pd.DataFrame) -> pd.DataFrame:
     """Add shortest_distance_to_closest_mrt and closest_mrt columns."""
+    import math
+
     distances, names = [], []
     for row in buildings_df.itertuples():
-        dist, idx = _nearest_geodesic(row.latitude, row.longitude, mrt_df["lat"], mrt_df["lng"])
+        lat, lon = row.latitude, row.longitude
+        if lat is None or lon is None or (isinstance(lat, float) and math.isnan(lat)):
+            distances.append(float("nan"))
+            names.append(None)
+            continue
+        dist, idx = _nearest_geodesic(lat, lon, mrt_df["lat"], mrt_df["lng"])
         distances.append(round(dist, 4))
         names.append(mrt_df["station_name"].iloc[idx])
 
@@ -42,6 +49,8 @@ def compute_mrt_features(buildings_df: pd.DataFrame, mrt_df: pd.DataFrame) -> pd
 
 def compute_school_features(buildings_df: pd.DataFrame, schools_df: pd.DataFrame) -> pd.DataFrame:
     """Add closest school name (by level) for each building."""
+    import math
+
     pri = schools_df[schools_df["mainlevel_code"] == "PRIMARY"].reset_index(drop=True)
     sec = schools_df[schools_df["mainlevel_code"] == "SECONDARY"].reset_index(drop=True)
     mixed = schools_df[schools_df["mainlevel_code"] == "MIXED LEVELS"].reset_index(drop=True)
@@ -49,6 +58,11 @@ def compute_school_features(buildings_df: pd.DataFrame, schools_df: pd.DataFrame
     closest_pri, closest_sec, closest_mixed = [], [], []
     for row in buildings_df.itertuples():
         lat, lon = row.latitude, row.longitude
+        if lat is None or lon is None or (isinstance(lat, float) and math.isnan(lat)):
+            closest_pri.append(None)
+            closest_sec.append(None)
+            closest_mixed.append(None)
+            continue
         _, i = _nearest_geodesic(lat, lon, pri["lat"], pri["long"])
         closest_pri.append(pri["school_name"].iloc[i] if len(pri) else None)
         _, i = _nearest_geodesic(lat, lon, sec["lat"], sec["long"])

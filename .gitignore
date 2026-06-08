@@ -6,7 +6,8 @@
 models/
 reports/
 
-# Data files
+# Data files — large raw files fetched at pipeline runtime
+data/raw/resale_transactions.csv
 data/interim/*.csv
 data/processed/*.csv
 
