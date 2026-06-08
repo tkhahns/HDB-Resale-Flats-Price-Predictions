@@ -15,7 +15,7 @@ from typing import Union
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from starlette.responses import Response
 
 from src.avm.api import model_registry
@@ -58,6 +58,7 @@ app = FastAPI(
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+
 @app.get("/healthz", response_model=HealthResponse, tags=["ops"])
 def healthz():
     return {"status": "ok"}
@@ -82,9 +83,7 @@ def predict(body: Union[BatchPredictionRequest, PredictionRequest]):
     bundle = model_registry.get_bundle()
     run_date = model_registry.get_run_date()
 
-    requests_list = (
-        body.instances if isinstance(body, BatchPredictionRequest) else [body]
-    )
+    requests_list = body.instances if isinstance(body, BatchPredictionRequest) else [body]
 
     macro_values = bundle.manifest.get("latest_macro", {})
     t0 = time.perf_counter()
@@ -100,10 +99,7 @@ def predict(body: Union[BatchPredictionRequest, PredictionRequest]):
     finally:
         _predict_latency.observe(time.perf_counter() - t0)
 
-    preds = [
-        PredictionResponse(predicted_price=float(p), model_run_date=run_date)
-        for p in prices
-    ]
+    preds = [PredictionResponse(predicted_price=float(p), model_run_date=run_date) for p in prices]
     if isinstance(body, BatchPredictionRequest):
         return BatchPredictionResponse(predictions=preds)
     return preds[0]

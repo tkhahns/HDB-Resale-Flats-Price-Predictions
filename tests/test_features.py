@@ -8,16 +8,16 @@ from src.avm.features.building import (
     convert_remaining_lease_to_months,
     convert_storey_range_to_median,
     expand_transaction_date,
-    map_yn_to_bool,
     impute_unseen_categories,
+    map_yn_to_bool,
 )
-from src.avm.features.spatial import is_elite
 from src.avm.features.macro import merge_macro_features
-
+from src.avm.features.spatial import is_elite
 
 # ---------------------------------------------------------------------------
 # Building features
 # ---------------------------------------------------------------------------
+
 
 class TestStoreyRange:
     def test_median_basic(self):
@@ -95,6 +95,7 @@ class TestImputeUnseenCategories:
 # Spatial features
 # ---------------------------------------------------------------------------
 
+
 class TestIsElite:
     def _make_schools(self):
         return pd.DataFrame(
@@ -123,6 +124,7 @@ class TestIsElite:
 # ---------------------------------------------------------------------------
 # Macro features
 # ---------------------------------------------------------------------------
+
 
 class TestMacroMerge:
     def _make_macro(self):
@@ -169,9 +171,7 @@ class TestMacroMerge:
                 "cooling_measure": [0, 0],
             }
         )
-        tx = pd.DataFrame(
-            {"month": pd.to_datetime(["2021-02"]), "resale_price": [500000]}
-        )
+        tx = pd.DataFrame({"month": pd.to_datetime(["2021-02"]), "resale_price": [500000]})
         result = merge_macro_features(tx, macro, lag_months=1)
         # Transaction in Feb should see Jan's macro (sora_3m=1.0), not Feb's (2.0)
         assert result["sora_3m"].iloc[0] == pytest.approx(1.0)

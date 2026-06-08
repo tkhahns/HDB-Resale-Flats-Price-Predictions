@@ -17,7 +17,6 @@ import logging
 import os
 import sys
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import yaml
@@ -41,9 +40,17 @@ def _load_config(path: str = "config/pipeline.yaml") -> dict:
         cfg["data"]["models_dir"] = f"s3://{artifacts_bucket}/models"
         cfg["data"]["reports_dir"] = f"s3://{artifacts_bucket}/reports"
     if data_bucket:
-        for key in ("raw_transactions", "building_info", "mrt_data", "schools_data",
-                    "hdb_property", "macro_data", "interim_combined",
-                    "processed_train", "processed_test"):
+        for key in (
+            "raw_transactions",
+            "building_info",
+            "mrt_data",
+            "schools_data",
+            "hdb_property",
+            "macro_data",
+            "interim_combined",
+            "processed_train",
+            "processed_test",
+        ):
             if key in cfg["data"]:
                 local_rel = cfg["data"][key].lstrip("data/")
                 cfg["data"][key] = f"s3://{data_bucket}/{local_rel}"
@@ -54,21 +61,31 @@ def _load_config(path: str = "config/pipeline.yaml") -> dict:
 # Stage helpers
 # ---------------------------------------------------------------------------
 
+
 def _run_ingest(cfg: dict, synthetic: bool) -> pd.DataFrame:
+    from src.avm.features.building import merge_property_info
+    from src.avm.features.spatial import (
+        add_elite_flags,
+        compute_mrt_features,
+        compute_school_features,
+    )
+    from src.avm.ingest.macro import generate_synthetic_macro
+    from src.avm.ingest.onemap import (
+        geocode_buildings,
+        geocode_schools,
+        load_mrt_data,
+        load_schools_data,
+    )
     from src.avm.ingest.transactions import (
         fetch_from_datagov,
         generate_synthetic_transactions,
         load_from_csv,
     )
-    from src.avm.ingest.onemap import geocode_buildings, load_mrt_data, load_schools_data, geocode_schools
-    from src.avm.ingest.macro import generate_synthetic_macro, load_macro_from_csv
-    from src.avm.features.spatial import compute_mrt_features, compute_school_features, add_elite_flags
-    from src.avm.features.building import merge_property_info
 
     if synthetic:
         logger.info("=== INGEST (synthetic mode) ===")
         df = generate_synthetic_transactions(n=5000)
-        macro_df = generate_synthetic_macro(cfg["data"]["macro_data"])
+        generate_synthetic_macro(cfg["data"]["macro_data"])
         interim_path = cfg["data"]["interim_combined"]
         storage.makedirs(interim_path)
         df.to_csv(interim_path, index=False)
@@ -124,13 +141,13 @@ def _run_ingest(cfg: dict, synthetic: bool) -> pd.DataFrame:
 
 
 def _run_validate(cfg: dict, df: pd.DataFrame) -> None:
+    from src.avm.ingest.macro import load_macro_from_csv
     from src.avm.validate.schema import (
-        validate_transactions,
-        validate_macro,
         check_drift,
         generate_validation_report,
+        validate_macro,
+        validate_transactions,
     )
-    from src.avm.ingest.macro import load_macro_from_csv
 
     logger.info("=== VALIDATE ===")
     train_cutoff = pd.Timestamp(cfg["data"]["train_cutoff"])
@@ -159,11 +176,11 @@ def _run_validate(cfg: dict, df: pd.DataFrame) -> None:
 
 def _run_features(cfg: dict, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     from src.avm.features.building import (
-        convert_storey_range_to_median,
         convert_remaining_lease_to_months,
-        map_yn_to_bool,
+        convert_storey_range_to_median,
         expand_transaction_date,
         impute_unseen_categories,
+        map_yn_to_bool,
     )
     from src.avm.features.macro import merge_macro_features
     from src.avm.ingest.macro import load_macro_from_csv
@@ -211,17 +228,18 @@ def _run_features(cfg: dict, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFra
     df_test.to_csv(cfg["data"]["processed_test"], index=False)
     logger.info(
         "Processed: train=%d rows, test=%d rows, features=%d",
-        len(df_train), len(df_test), df_train.shape[1],
+        len(df_train),
+        len(df_test),
+        df_train.shape[1],
     )
     return df_train, df_test
 
 
 def _run_collinearity(cfg: dict, df_train: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     from src.avm.collinearity import (
-        compute_vif,
-        prune_by_vif,
         correlation_screen,
         generate_collinearity_report,
+        prune_by_vif,
     )
 
     logger.info("=== COLLINEARITY ===")
@@ -241,7 +259,9 @@ def _run_collinearity(cfg: dict, df_train: pd.DataFrame) -> tuple[pd.DataFrame, 
         corr_pairs,
         output_path=f"{cfg['data']['reports_dir']}/collinearity_report.csv",
     )
-    df_pruned = df_train.drop(columns=[c for c in dropped if c in df_train.columns], errors="ignore")
+    df_pruned = df_train.drop(
+        columns=[c for c in dropped if c in df_train.columns], errors="ignore"
+    )
     return df_pruned, dropped
 
 
@@ -251,9 +271,9 @@ def _run_train(
     df_test: pd.DataFrame,
     dropped_cols: list[str],
     run_date: str,
-) -> "AVMModelBundle":
-    from src.avm.models.preprocess import fit_transform_train, transform_test, drop_pre_encode_cols
-    from src.avm.models.ensemble import AVMModelBundle, train_ensemble, summarise_feature_importance
+):
+    from src.avm.models.ensemble import AVMModelBundle, summarise_feature_importance, train_ensemble
+    from src.avm.models.preprocess import drop_pre_encode_cols, fit_transform_train, transform_test
 
     logger.info("=== TRAIN ===")
     target = cfg["features"]["target"]
@@ -271,7 +291,10 @@ def _run_train(
     weights = cfg["models"]["ensemble_weights"]
 
     ensemble, ens_metrics, all_metrics = train_ensemble(
-        X_train_enc, y_train, X_test_enc, y_test,
+        X_train_enc,
+        y_train,
+        X_test_enc,
+        y_test,
         lgbm_params=lgbm_params,
         xgb_params=xgb_params,
         feature_names=feature_names,
@@ -282,6 +305,7 @@ def _run_train(
     reports_dir = cfg["data"]["reports_dir"]
     storage.makedirs(reports_dir)
     import pandas as _pd
+
     _pd.DataFrame(all_metrics).T.to_csv(f"{reports_dir}/model_metrics.csv")
     fi_df = summarise_feature_importance(ensemble)
     fi_df.to_csv(f"{reports_dir}/feature_importance.csv", index=False)
@@ -290,9 +314,12 @@ def _run_train(
     latest_macro: dict = {}
     try:
         from src.avm.ingest.macro import load_macro_from_csv
+
         macro_df = load_macro_from_csv(cfg["data"]["macro_data"])
         latest_row = macro_df.sort_values("month").iloc[-1].to_dict()
-        latest_macro = {k: (str(v) if hasattr(v, "isoformat") else v) for k, v in latest_row.items()}
+        latest_macro = {
+            k: (str(v) if hasattr(v, "isoformat") else v) for k, v in latest_row.items()
+        }
     except Exception:
         pass
 
@@ -324,12 +351,12 @@ def _run_backtest(
     df_test: pd.DataFrame,
     dropped_cols: list[str],
 ) -> None:
-    from src.avm.backtest.walk_forward import walk_forward_cv
     from src.avm.backtest.bias import (
-        error_by_segment,
         error_by_price_band,
+        error_by_segment,
         generate_backtest_report,
     )
+    from src.avm.backtest.walk_forward import walk_forward_cv
     from src.avm.models.preprocess import fit_transform_train, transform_test
 
     logger.info("=== BACKTEST ===")
@@ -374,6 +401,7 @@ def _run_backtest(
     X_tr_enc, pp, _ = fit_transform_train(X_tr)
     X_te_enc = transform_test(X_te, pp)
     from src.avm.models.train import train_lgbm, train_xgboost
+
     lgbm_m = train_lgbm(X_tr_enc, df_bt_train_target, cfg["models"]["lgbm"])
     xgb_m = train_xgboost(X_tr_enc, df_bt_train_target, cfg["models"]["xgboost"])
     w = cfg["models"]["ensemble_weights"]
@@ -383,14 +411,13 @@ def _run_backtest(
     seg_results = error_by_segment(df_bt_test, y_pred_test, target, seg_cols)
     price_band = error_by_price_band(df_bt_test, y_pred_test, target)
 
-    generate_backtest_report(
-        fold_results, seg_results, price_band, cfg["data"]["reports_dir"]
-    )
+    generate_backtest_report(fold_results, seg_results, price_band, cfg["data"]["reports_dir"])
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="HDB AVM Research Pipeline")
@@ -403,7 +430,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--collinearity", action="store_true")
     parser.add_argument("--train", action="store_true")
     parser.add_argument("--backtest", action="store_true")
-    parser.add_argument("--synthetic", action="store_true", help="Use synthetic data (no API calls)")
+    parser.add_argument(
+        "--synthetic", action="store_true", help="Use synthetic data (no API calls)"
+    )
     args = parser.parse_args(argv)
 
     run_date = args.run_date or str(date.today())
@@ -452,9 +481,8 @@ def main(argv: list[str] | None = None) -> None:
         df_train, dropped_cols = _run_collinearity(cfg, df_train)
 
     # --- Train ---
-    bundle = None
     if run_all or args.train:
-        bundle = _run_train(cfg, df_train, df_test, dropped_cols, run_date)
+        _run_train(cfg, df_train, df_test, dropped_cols, run_date)
 
     # --- Backtest ---
     if run_all or args.backtest:

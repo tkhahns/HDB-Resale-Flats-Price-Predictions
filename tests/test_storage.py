@@ -1,9 +1,6 @@
 """Tests for src.avm.io.storage — local round-trips for all helpers."""
 
-import json
-
 import numpy as np
-import pytest
 
 from src.avm.io.storage import (
     exists,
@@ -76,8 +73,10 @@ def test_save_load_joblib_dict(tmp_path):
 
 def test_savefig_creates_file(tmp_path):
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots()
     ax.plot([1, 2, 3], [4, 5, 6])
     path = str(tmp_path / "plot.png")

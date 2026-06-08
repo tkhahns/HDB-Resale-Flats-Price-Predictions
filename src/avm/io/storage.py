@@ -35,6 +35,7 @@ def _is_s3(path: str) -> bool:
 # Directory helpers
 # ---------------------------------------------------------------------------
 
+
 def makedirs(path: str) -> None:
     """Create parent directories. No-op for s3:// (object-store flat namespace)."""
     if not _is_s3(path):
@@ -50,6 +51,7 @@ def exists(path: str) -> bool:
     """Return True if the path exists (local file or S3 object)."""
     if _is_s3(path):
         import s3fs
+
         fs = s3fs.S3FileSystem(anon=False)
         return fs.exists(path)
     return Path(path).exists()
@@ -59,6 +61,7 @@ def exists(path: str) -> bool:
 # Generic open
 # ---------------------------------------------------------------------------
 
+
 def open_path(path: str, mode: str = "rb"):
     """Return a fsspec open context manager for local or S3 paths."""
     return fsspec.open(path, mode)
@@ -67,6 +70,7 @@ def open_path(path: str, mode: str = "rb"):
 # ---------------------------------------------------------------------------
 # joblib
 # ---------------------------------------------------------------------------
+
 
 def save_joblib(obj: Any, path: str) -> None:
     makedirs(path)
@@ -83,6 +87,7 @@ def load_joblib(path: str) -> Any:
 # ---------------------------------------------------------------------------
 # Text / JSON
 # ---------------------------------------------------------------------------
+
 
 def write_text(path: str, text: str) -> None:
     makedirs(path)
@@ -106,6 +111,7 @@ def read_json(path: str) -> dict:
 # ---------------------------------------------------------------------------
 # Matplotlib
 # ---------------------------------------------------------------------------
+
 
 def savefig(fig_or_plt: Any, path: str, **kwargs) -> None:
     """Save a matplotlib Figure or the pyplot module to any fsspec path."""

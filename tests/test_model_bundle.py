@@ -2,28 +2,29 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from src.avm.models.ensemble import AVMEnsemble, AVMModelBundle, train_ensemble
-from src.avm.models.preprocess import fit_transform_train, transform_test, drop_pre_encode_cols
+from src.avm.models.ensemble import AVMModelBundle, train_ensemble
+from src.avm.models.preprocess import drop_pre_encode_cols, fit_transform_train, transform_test
 
 
 def _make_feature_df(n: int = 200, seed: int = 0) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     towns = ["BEDOK", "BISHAN", "CLEMENTI", "HOUGANG", "TAMPINES"]
     flat_types = ["3 ROOM", "4 ROOM", "5 ROOM"]
-    return pd.DataFrame({
-        "floor_area_sqm": rng.uniform(60, 150, n),
-        "storey_median": rng.integers(1, 20, n).astype(float),
-        "remaining_lease_months": rng.integers(600, 1100, n).astype(float),
-        "year": rng.integers(2017, 2024, n).astype(float),
-        "month_numeric": rng.integers(1, 13, n).astype(float),
-        "sora_3m": rng.uniform(0.5, 4.0, n),
-        "cpi_all_items": rng.uniform(95, 120, n),
-        "town": rng.choice(towns, n),
-        "flat_type": rng.choice(flat_types, n),
-        "resale_price": rng.uniform(300_000, 900_000, n),
-    })
+    return pd.DataFrame(
+        {
+            "floor_area_sqm": rng.uniform(60, 150, n),
+            "storey_median": rng.integers(1, 20, n).astype(float),
+            "remaining_lease_months": rng.integers(600, 1100, n).astype(float),
+            "year": rng.integers(2017, 2024, n).astype(float),
+            "month_numeric": rng.integers(1, 13, n).astype(float),
+            "sora_3m": rng.uniform(0.5, 4.0, n),
+            "cpi_all_items": rng.uniform(95, 120, n),
+            "town": rng.choice(towns, n),
+            "flat_type": rng.choice(flat_types, n),
+            "resale_price": rng.uniform(300_000, 900_000, n),
+        }
+    )
 
 
 def _split_xy(df: pd.DataFrame):
@@ -49,7 +50,10 @@ def test_bundle_save_load_predicts_identically(tmp_path):
     xgb_params = {"n_estimators": 20, "learning_rate": 0.1}
 
     ensemble, ens_metrics, _ = train_ensemble(
-        X_tr_enc, y_tr, X_te_enc, y_te,
+        X_tr_enc,
+        y_tr,
+        X_te_enc,
+        y_te,
         lgbm_params=lgbm_params,
         xgb_params=xgb_params,
         feature_names=feature_names,
@@ -81,7 +85,10 @@ def test_bundle_manifest_preserved(tmp_path):
     lgbm_params = {"n_estimators": 10, "num_leaves": 8, "learning_rate": 0.1, "verbose": -1}
     xgb_params = {"n_estimators": 10, "learning_rate": 0.1}
     ensemble, _, _ = train_ensemble(
-        X_enc, y, X_enc, y,
+        X_enc,
+        y,
+        X_enc,
+        y,
         lgbm_params=lgbm_params,
         xgb_params=xgb_params,
         feature_names=feature_names,
@@ -110,7 +117,10 @@ def test_bundle_all_files_written(tmp_path):
     lgbm_params = {"n_estimators": 10, "num_leaves": 8, "learning_rate": 0.1, "verbose": -1}
     xgb_params = {"n_estimators": 10, "learning_rate": 0.1}
     ensemble, _, _ = train_ensemble(
-        X_enc, y, X_enc, y,
+        X_enc,
+        y,
+        X_enc,
+        y,
         lgbm_params=lgbm_params,
         xgb_params=xgb_params,
         feature_names=feature_names,

@@ -16,21 +16,29 @@ import pandas as pd
 
 from src.avm.api.schemas import PredictionRequest
 from src.avm.features.building import (
-    convert_storey_range_to_median,
     convert_remaining_lease_to_months,
-    map_yn_to_bool,
+    convert_storey_range_to_median,
     expand_transaction_date,
+    map_yn_to_bool,
 )
 
-
 _YN_COLS = [
-    "residential", "commercial", "market_hawker",
-    "miscellaneous", "multistorey_carpark", "precinct_pavilion",
+    "residential",
+    "commercial",
+    "market_hawker",
+    "miscellaneous",
+    "multistorey_carpark",
+    "precinct_pavilion",
 ]
 
 _MACRO_COLS = [
-    "sora_3m", "cpi_all_items", "cpi_housing", "hdb_rpi",
-    "gdp_growth_qoq", "unemployment_rate", "cooling_measure",
+    "sora_3m",
+    "cpi_all_items",
+    "cpi_housing",
+    "hdb_rpi",
+    "gdp_growth_qoq",
+    "unemployment_rate",
+    "cooling_measure",
 ]
 
 

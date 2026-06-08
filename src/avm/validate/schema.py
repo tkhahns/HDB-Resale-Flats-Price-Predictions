@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pandera.pandas as pa
-from pandera.pandas import Column, DataFrameSchema, Check
+from pandera.pandas import Check, Column, DataFrameSchema
 from scipy import stats
 
 from src.avm.io import storage
@@ -96,7 +96,11 @@ def check_drift(
         act_pct = np.where(act_counts == 0, eps, act_counts / act_counts.sum())
         psi = float(np.sum((act_pct - exp_pct) * np.log(act_pct / exp_pct)))
 
-        drift_results[col] = {"ks_stat": round(ks_stat, 4), "ks_p": round(ks_p, 4), "psi": round(psi, 4)}
+        drift_results[col] = {
+            "ks_stat": round(ks_stat, 4),
+            "ks_p": round(ks_p, 4),
+            "psi": round(psi, 4),
+        }
         if psi > psi_threshold:
             flagged.append(col)
 
@@ -112,7 +116,9 @@ def check_geocoding_coverage(buildings_df: pd.DataFrame, min_coverage: float = 0
     coverage = buildings_df["latitude"].notna().mean()
     ok = coverage >= min_coverage
     if not ok:
-        logger.error("Geocoding coverage %.1f%% below threshold %.1f%%", coverage * 100, min_coverage * 100)
+        logger.error(
+            "Geocoding coverage %.1f%% below threshold %.1f%%", coverage * 100, min_coverage * 100
+        )
     return ok
 
 
@@ -122,7 +128,9 @@ def check_macro_completeness(transactions_df: pd.DataFrame, macro_df: pd.DataFra
     mac_months = macro_df["month"].dt.to_period("M").unique()
     missing = [str(m) for m in tx_months if m not in mac_months]
     if missing:
-        logger.warning("Macro data missing for %d transaction months: %s", len(missing), missing[:5])
+        logger.warning(
+            "Macro data missing for %d transaction months: %s", len(missing), missing[:5]
+        )
     return missing
 
 

@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.avm.collinearity import (
     compute_vif,
@@ -41,7 +40,9 @@ class TestComputeVIF:
     def test_independent_features_low_vif(self):
         df = _make_independent_df(n=500)
         result = compute_vif(df)
-        assert (result["VIF"] < 5).all(), f"Expected VIF < 5 for independent features, got:\n{result}"
+        assert (result["VIF"] < 5).all(), (
+            f"Expected VIF < 5 for independent features, got:\n{result}"
+        )
 
     def test_collinear_features_high_vif(self):
         df = _make_collinear_df()

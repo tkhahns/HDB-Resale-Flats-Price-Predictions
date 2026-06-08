@@ -44,7 +44,9 @@ def prune_by_vif(
     current = df.copy()
 
     while True:
-        candidates = [c for c in current.select_dtypes(include="number").columns if c not in protected]
+        candidates = [
+            c for c in current.select_dtypes(include="number").columns if c not in protected
+        ]
         if len(candidates) < 2:
             break
 
@@ -58,7 +60,9 @@ def prune_by_vif(
         current = current.drop(columns=[worst])
         dropped.append(worst)
 
-    logger.info("VIF pruning complete: dropped %d features, %d remain", len(dropped), len(current.columns))
+    logger.info(
+        "VIF pruning complete: dropped %d features, %d remain", len(dropped), len(current.columns)
+    )
     return current, dropped
 
 
@@ -85,7 +89,11 @@ def correlation_screen(
                         "both_unprotected": cols[i] not in protected and cols[j] not in protected,
                     }
                 )
-    result = pd.DataFrame(pairs) if pairs else pd.DataFrame(columns=["feature_a", "feature_b", "pearson_r", "both_unprotected"])
+    result = (
+        pd.DataFrame(pairs)
+        if pairs
+        else pd.DataFrame(columns=["feature_a", "feature_b", "pearson_r", "both_unprotected"])
+    )
     if not result.empty:
         result = result.sort_values("pearson_r", ascending=False)
     logger.info("Found %d highly correlated pairs (|r| ≥ %.2f)", len(result), threshold)
