@@ -1,0 +1,15 @@
+data/
+reports/
+.git/
+*.ipynb
+*.pptx
+*.mp4
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.env
+.env.*

@@ -2,10 +2,11 @@
 
 import logging
 import time
-from pathlib import Path
 
 import pandas as pd
 import requests
+
+from src.avm.io import storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def fetch_from_datagov(
     df["month"] = pd.to_datetime(df["month"], format="%Y-%m")
     df = df[(df["month"] >= start_ts) & (df["month"] <= end_ts)].reset_index(drop=True)
 
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    storage.makedirs(output_path)
     df.to_csv(output_path, index=False)
     logger.info("Saved %d transactions to %s", len(df), output_path)
     return df

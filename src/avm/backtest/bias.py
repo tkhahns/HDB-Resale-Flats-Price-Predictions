@@ -1,13 +1,14 @@
 """Bias diagnostics: signed error over time, segment-level residual analysis."""
 
 import logging
-from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from src.avm.io import storage
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ def generate_backtest_report(
     price_band_results: pd.DataFrame,
     output_dir: str = "reports",
 ) -> None:
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    storage.makedirs(output_dir + "/")
 
     folds_df = pd.DataFrame(fold_results)
     folds_df.to_csv(f"{output_dir}/backtest_metrics.csv", index=False)
@@ -106,7 +107,7 @@ def generate_backtest_report(
     ax2.tick_params(axis="x", rotation=45)
 
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/backtest_error_over_time.png", dpi=150)
+    storage.savefig(plt, f"{output_dir}/backtest_error_over_time.png")
     plt.close()
 
     # --- Segment bias plots ---
@@ -119,7 +120,7 @@ def generate_backtest_report(
         ax.set_title(f"Mean Signed Error by {seg_name}")
         ax.set_xlabel("Signed error (SGD)  [positive = over-prediction]")
         plt.tight_layout()
-        plt.savefig(f"{output_dir}/backtest_bias_{seg_name}.png", dpi=150)
+        storage.savefig(plt, f"{output_dir}/backtest_bias_{seg_name}.png")
         plt.close()
         seg_df.to_csv(f"{output_dir}/backtest_bias_{seg_name}.csv", index=False)
 

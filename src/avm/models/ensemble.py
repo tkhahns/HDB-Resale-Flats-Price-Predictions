@@ -1,11 +1,9 @@
 """LGBM + XGBoost ensemble (Automated Valuation Model)."""
 
 import logging
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any
 
-import joblib
 import numpy as np
 import pandas as pd
 
@@ -28,13 +26,62 @@ class AVMEnsemble:
         return self.lgbm_weight * p_lgbm + self.xgb_weight * p_xgb
 
     def save(self, path: str) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(self, path)
+        from src.avm.io.storage import save_joblib
+        save_joblib(self, path)
         logger.info("Ensemble saved to %s", path)
 
     @classmethod
     def load(cls, path: str) -> "AVMEnsemble":
-        return joblib.load(path)
+        from src.avm.io.storage import load_joblib
+        return load_joblib(path)
+
+
+@dataclass
+class AVMModelBundle:
+    """Complete portable bundle for inference: ensemble + preprocessor + metadata."""
+
+    ensemble: AVMEnsemble
+    preprocessor: Any  # fitted sklearn Pipeline
+    feature_names: list[str]
+    collinearity_dropped: list[str] = field(default_factory=list)
+    manifest: dict = field(default_factory=dict)
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Preprocess raw feature DataFrame and return price predictions."""
+        from src.avm.models.preprocess import drop_pre_encode_cols, transform_test
+        X_clean = drop_pre_encode_cols(X, extra_drops=self.collinearity_dropped)
+        X_enc = transform_test(X_clean, self.preprocessor)
+        return self.ensemble.predict(X_enc)
+
+    def save_bundle(self, prefix: str) -> None:
+        """Persist all bundle components under prefix/ (local or s3://)."""
+        from src.avm.io.storage import makedirs, save_joblib, write_json
+        makedirs(prefix + "/")
+        save_joblib(self.ensemble, f"{prefix}/avm_ensemble.pkl")
+        save_joblib(self.preprocessor, f"{prefix}/preprocessor.pkl")
+        write_json({"feature_names": self.feature_names}, f"{prefix}/feature_names.json")
+        write_json(
+            {"collinearity_dropped": self.collinearity_dropped, **self.manifest},
+            f"{prefix}/manifest.json",
+        )
+        logger.info("Bundle saved → %s/", prefix)
+
+    @classmethod
+    def load_bundle(cls, prefix: str) -> "AVMModelBundle":
+        """Load bundle from prefix/ (local or s3://)."""
+        from src.avm.io.storage import load_joblib, read_json
+        ensemble = load_joblib(f"{prefix}/avm_ensemble.pkl")
+        preprocessor = load_joblib(f"{prefix}/preprocessor.pkl")
+        feature_names = read_json(f"{prefix}/feature_names.json")["feature_names"]
+        manifest = read_json(f"{prefix}/manifest.json")
+        collinearity_dropped = manifest.pop("collinearity_dropped", [])
+        return cls(
+            ensemble=ensemble,
+            preprocessor=preprocessor,
+            feature_names=feature_names,
+            collinearity_dropped=collinearity_dropped,
+            manifest=manifest,
+        )
 
 
 def train_ensemble(

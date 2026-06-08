@@ -1,11 +1,12 @@
 """Multi-collinearity detection and resolution via VIF and Pearson correlation."""
 
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+from src.avm.io import storage
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ def generate_collinearity_report(
     output_path: str = "reports/collinearity_report.csv",
 ) -> None:
     """Save a before/after VIF comparison and correlation pairs to CSV."""
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    storage.makedirs(output_path)
 
     before_vif = compute_vif(before_df).rename(columns={"VIF": "VIF_before"})
     after_vif = compute_vif(after_df).rename(columns={"VIF": "VIF_after"})
