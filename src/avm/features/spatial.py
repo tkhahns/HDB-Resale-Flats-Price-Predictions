@@ -11,7 +11,9 @@ _SCHOOL_LEVELS = ("PRIMARY", "SECONDARY", "MIXED LEVELS")
 _ELITE_INDICATORS = ("sap_ind", "autonomous_ind", "gifted_ind", "ip_ind")
 
 
-def _nearest_geodesic(lat: float, lon: float, ref_lats: pd.Series, ref_lons: pd.Series) -> tuple[float, int]:
+def _nearest_geodesic(
+    lat: float, lon: float, ref_lats: pd.Series, ref_lons: pd.Series
+) -> tuple[float, int]:
     """Return (min_distance_km, index_of_nearest) for a single point."""
     min_dist = float("inf")
     min_idx = -1
@@ -79,6 +81,8 @@ def add_elite_flags(df: pd.DataFrame, schools_df: pd.DataFrame) -> pd.DataFrame:
         ("closest_mixed_sch", "is_elite_closest_mixed_sch"),
     ]:
         if col in out.columns:
-            out[flag_col] = out[col].apply(lambda s: is_elite(s, schools_df) if pd.notna(s) else False)
+            out[flag_col] = out[col].apply(
+                lambda s: is_elite(s, schools_df) if pd.notna(s) else False
+            )
             out.drop(columns=[col], inplace=True)
     return out

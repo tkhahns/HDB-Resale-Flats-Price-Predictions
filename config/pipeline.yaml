@@ -10,6 +10,7 @@ data:
   processed_train: "data/processed/df_train.csv"
   processed_test: "data/processed/df_test.csv"
   reports_dir: "reports"
+  models_dir: "models"
 
 features:
   cols_to_drop:

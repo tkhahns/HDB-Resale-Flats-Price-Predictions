@@ -1,31 +1,47 @@
 """Building-level feature engineering: type conversions and property merges."""
 
 import logging
-import re
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_YN_COLS = ["residential", "commercial", "market_hawker", "miscellaneous", "multistorey_carpark", "precinct_pavilion"]
+_YN_COLS = [
+    "residential",
+    "commercial",
+    "market_hawker",
+    "miscellaneous",
+    "multistorey_carpark",
+    "precinct_pavilion",
+]
 _PROPERTY_DROP_COLS = [
-    "1room_sold", "2room_sold", "3room_sold", "4room_sold", "5room_sold",
-    "exec_sold", "multigen_sold", "studio_apartment_sold",
-    "1room_rental", "2room_rental", "3room_rental", "other_room_rental",
+    "1room_sold",
+    "2room_sold",
+    "3room_sold",
+    "4room_sold",
+    "5room_sold",
+    "exec_sold",
+    "multigen_sold",
+    "studio_apartment_sold",
+    "1room_rental",
+    "2room_rental",
+    "3room_rental",
+    "other_room_rental",
 ]
 
 
 def convert_storey_range_to_median(df: pd.DataFrame) -> pd.DataFrame:
     """Convert '07 TO 09' storey range strings to the numeric median (8.0)."""
     out = df.copy()
-    out["storey_range"] = out["storey_range"].str.split(" TO ").apply(
-        lambda x: (int(x[0]) + int(x[1])) / 2
+    out["storey_range"] = (
+        out["storey_range"].str.split(" TO ").apply(lambda x: (int(x[0]) + int(x[1])) / 2)
     )
     return out
 
 
 def convert_remaining_lease_to_months(df: pd.DataFrame) -> pd.DataFrame:
     """Convert '73 years 05 months' strings to total months (integer)."""
+
     def _parse(s: str) -> int:
         parts = s.split()
         years = int(parts[0])
@@ -70,7 +86,9 @@ def merge_property_info(transactions_df: pd.DataFrame, property_df: pd.DataFrame
     return merged
 
 
-def impute_unseen_categories(df_test: pd.DataFrame, df_train: pd.DataFrame, col: str, fallback: str) -> pd.DataFrame:
+def impute_unseen_categories(
+    df_test: pd.DataFrame, df_train: pd.DataFrame, col: str, fallback: str
+) -> pd.DataFrame:
     """Replace categories in df_test that don't appear in df_train with fallback."""
     seen = set(df_train[col].dropna().unique())
     mask = ~df_test[col].isin(seen)

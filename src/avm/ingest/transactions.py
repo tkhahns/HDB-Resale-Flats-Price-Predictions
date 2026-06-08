@@ -2,10 +2,11 @@
 
 import logging
 import time
-from pathlib import Path
 
 import pandas as pd
 import requests
+
+from src.avm.io import storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def fetch_from_datagov(
     df["month"] = pd.to_datetime(df["month"], format="%Y-%m")
     df = df[(df["month"] >= start_ts) & (df["month"] <= end_ts)].reset_index(drop=True)
 
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    storage.makedirs(output_path)
     df.to_csv(output_path, index=False)
     logger.info("Saved %d transactions to %s", len(df), output_path)
     return df
@@ -64,15 +65,43 @@ def generate_synthetic_transactions(n: int = 5000, seed: int = 42) -> pd.DataFra
 
     rng = np.random.default_rng(seed)
     towns = [
-        "ANG MO KIO", "BEDOK", "BISHAN", "BUKIT BATOK", "BUKIT MERAH",
-        "BUKIT TIMAH", "CENTRAL AREA", "CHOA CHU KANG", "CLEMENTI",
-        "GEYLANG", "HOUGANG", "JURONG EAST", "JURONG WEST", "KALLANG/WHAMPOA",
-        "MARINE PARADE", "PASIR RIS", "PUNGGOL", "QUEENSTOWN", "SEMBAWANG",
-        "SENGKANG", "SERANGOON", "TAMPINES", "TOA PAYOH", "WOODLANDS", "YISHUN",
+        "ANG MO KIO",
+        "BEDOK",
+        "BISHAN",
+        "BUKIT BATOK",
+        "BUKIT MERAH",
+        "BUKIT TIMAH",
+        "CENTRAL AREA",
+        "CHOA CHU KANG",
+        "CLEMENTI",
+        "GEYLANG",
+        "HOUGANG",
+        "JURONG EAST",
+        "JURONG WEST",
+        "KALLANG/WHAMPOA",
+        "MARINE PARADE",
+        "PASIR RIS",
+        "PUNGGOL",
+        "QUEENSTOWN",
+        "SEMBAWANG",
+        "SENGKANG",
+        "SERANGOON",
+        "TAMPINES",
+        "TOA PAYOH",
+        "WOODLANDS",
+        "YISHUN",
     ]
     flat_types = ["2 ROOM", "3 ROOM", "4 ROOM", "5 ROOM", "EXECUTIVE"]
     flat_models = ["Model A", "Improved", "New Generation", "Premium Apartment", "Standard"]
-    storey_bands = ["01 TO 03", "04 TO 06", "07 TO 09", "10 TO 12", "13 TO 15", "16 TO 18", "19 TO 21"]
+    storey_bands = [
+        "01 TO 03",
+        "04 TO 06",
+        "07 TO 09",
+        "10 TO 12",
+        "13 TO 15",
+        "16 TO 18",
+        "19 TO 21",
+    ]
     months = pd.date_range("2017-01", "2024-03", freq="MS")
 
     chosen_months = rng.choice(months, size=n)

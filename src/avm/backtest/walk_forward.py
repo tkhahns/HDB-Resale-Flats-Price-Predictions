@@ -1,7 +1,7 @@
 """Walk-forward (expanding-window) backtesting for the AVM pipeline."""
 
 import logging
-from typing import Callable, Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,11 @@ def walk_forward_cv(
 
         logger.info(
             "Fold %d: train up to %s | test %s → %s (%d test rows)",
-            fold_num, train_end, test_start, test_end, len(df_test_fold),
+            fold_num,
+            train_end,
+            test_start,
+            test_end,
+            len(df_test_fold),
         )
 
         try:

@@ -1,11 +1,12 @@
 """Multi-collinearity detection and resolution via VIF and Pearson correlation."""
 
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+from src.avm.io import storage
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,9 @@ def prune_by_vif(
     current = df.copy()
 
     while True:
-        candidates = [c for c in current.select_dtypes(include="number").columns if c not in protected]
+        candidates = [
+            c for c in current.select_dtypes(include="number").columns if c not in protected
+        ]
         if len(candidates) < 2:
             break
 
@@ -57,7 +60,9 @@ def prune_by_vif(
         current = current.drop(columns=[worst])
         dropped.append(worst)
 
-    logger.info("VIF pruning complete: dropped %d features, %d remain", len(dropped), len(current.columns))
+    logger.info(
+        "VIF pruning complete: dropped %d features, %d remain", len(dropped), len(current.columns)
+    )
     return current, dropped
 
 
@@ -84,7 +89,11 @@ def correlation_screen(
                         "both_unprotected": cols[i] not in protected and cols[j] not in protected,
                     }
                 )
-    result = pd.DataFrame(pairs) if pairs else pd.DataFrame(columns=["feature_a", "feature_b", "pearson_r", "both_unprotected"])
+    result = (
+        pd.DataFrame(pairs)
+        if pairs
+        else pd.DataFrame(columns=["feature_a", "feature_b", "pearson_r", "both_unprotected"])
+    )
     if not result.empty:
         result = result.sort_values("pearson_r", ascending=False)
     logger.info("Found %d highly correlated pairs (|r| ≥ %.2f)", len(result), threshold)
@@ -99,7 +108,7 @@ def generate_collinearity_report(
     output_path: str = "reports/collinearity_report.csv",
 ) -> None:
     """Save a before/after VIF comparison and correlation pairs to CSV."""
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    storage.makedirs(output_path)
 
     before_vif = compute_vif(before_df).rename(columns={"VIF": "VIF_before"})
     after_vif = compute_vif(after_df).rename(columns={"VIF": "VIF_after"})

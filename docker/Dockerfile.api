@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+# FastAPI prediction service container.
+#
+# docker build -f docker/Dockerfile.api -t hdb-avm-api .
+# docker run --rm -p 8080:8080 -e AVM_ARTIFACTS_BUCKET=my-bucket hdb-avm-api
+ARG BASE_IMAGE=hdb-avm-base:latest
+FROM ${BASE_IMAGE}
+
+EXPOSE 8080
+
+ENTRYPOINT ["uvicorn", "src.avm.api.main:app", "--host", "0.0.0.0", "--port", "8080"]

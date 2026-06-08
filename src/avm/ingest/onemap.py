@@ -13,10 +13,14 @@ logger = logging.getLogger(__name__)
 _ONEMAP_URL = "https://www.onemap.gov.sg/api/common/elastic/search"
 
 
-async def _fetch_coords(session: aiohttp.ClientSession, query: str) -> tuple[float | None, float | None]:
+async def _fetch_coords(
+    session: aiohttp.ClientSession, query: str
+) -> tuple[float | None, float | None]:
     params = {"searchVal": query, "returnGeom": "Y", "getAddrDetails": "Y", "pageNum": "1"}
     try:
-        async with session.get(_ONEMAP_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        async with session.get(
+            _ONEMAP_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)
+        ) as resp:
             data = await resp.json()
             result = data["results"][0]
             return float(result["LATITUDE"]), float(result["LONGITUDE"])

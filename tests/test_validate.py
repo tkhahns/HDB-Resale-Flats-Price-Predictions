@@ -1,14 +1,13 @@
 """Unit tests for data validation module."""
 
 import pandas as pd
-import pytest
 
+from src.avm.ingest.macro import generate_synthetic_macro
 from src.avm.validate.schema import (
     check_drift,
     validate_macro,
     validate_transactions,
 )
-from src.avm.ingest.macro import generate_synthetic_macro
 
 
 def _valid_transactions(n: int = 10) -> pd.DataFrame:
@@ -60,6 +59,7 @@ class TestValidateMacro:
 class TestCheckDrift:
     def _make_df(self, mean: float, n: int = 200) -> pd.DataFrame:
         import numpy as np
+
         rng = np.random.default_rng(42)
         return pd.DataFrame(
             {

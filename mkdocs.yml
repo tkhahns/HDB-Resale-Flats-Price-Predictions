@@ -1,0 +1,47 @@
+site_name: HDB AVM — Automated Valuation Model
+site_description: Singapore HDB Resale Flat Price Prediction Pipeline
+repo_url: https://github.com/tkhahns/hdb-resale-flats-price-predictions
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.annotate
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Runbook: runbook.md
+  - Modules:
+      - Pipeline: modules/pipeline.md
+      - Ingest: modules/ingest.md
+      - Features: modules/features.md
+      - Models: modules/models.md
+      - Backtest: modules/backtest.md
+      - Validate: modules/validate.md
+      - API: modules/api.md
+      - Storage (IO): modules/storage.md
+  - ADRs:
+      - ADR-001 fsspec vs boto3: adr/001-fsspec-vs-boto3.md
+      - ADR-002 EventBridge vs Airflow: adr/002-eventbridge-vs-airflow.md
+      - ADR-003 Shared base image: adr/003-shared-base-image.md
+      - ADR-004 latest.json pointer: adr/004-latest-json-pointer.md
+      - ADR-005 Persist preprocessor: adr/005-persist-preprocessor.md
