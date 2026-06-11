@@ -326,6 +326,7 @@ def _run_train(
 
     # Save complete model bundle (ensemble + preprocessor + metadata)
     models_prefix = cfg["data"]["models_prefix"]
+    reports_prefix = cfg["data"]["reports_dir"]
     bundle = AVMModelBundle(
         ensemble=ensemble,
         preprocessor=preprocessor,
@@ -338,12 +339,17 @@ def _run_train(
     # Write latest.json pointer — only on success, written last
     latest_json_path = cfg["data"]["models_latest_json"]
     storage.write_json(
-        {"model_prefix": models_prefix, "run_date": run_date, "metrics": ens_metrics},
+        {
+            "model_prefix": models_prefix,
+            "reports_prefix": reports_prefix,
+            "run_date": run_date,
+            "metrics": ens_metrics,
+        },
         latest_json_path,
     )
     logger.info("latest.json → %s", latest_json_path)
 
-    return bundle
+    return bundle, all_metrics, fi_df
 
 
 def _run_backtest(
@@ -413,6 +419,61 @@ def _run_backtest(
     price_band = error_by_price_band(df_bt_test, y_pred_test, target)
 
     generate_backtest_report(fold_results, seg_results, price_band, cfg["data"]["reports_dir"])
+    return fold_results, seg_results, price_band
+
+
+def _write_analytics_summary(
+    cfg: dict,
+    run_date: str,
+    all_metrics: dict,
+    fold_results: list[dict],
+    seg_results: dict,
+    price_band: "pd.DataFrame",
+    fi_df: "pd.DataFrame",
+    n_train: int,
+    n_test: int,
+) -> None:
+    """Write consolidated analytics.json consumed by the Vercel dashboard."""
+
+    def _df_to_records(df: "pd.DataFrame") -> list[dict]:
+        return [
+            {k: (round(v, 4) if isinstance(v, float) else v) for k, v in row.items()}
+            for row in df.to_dict(orient="records")
+        ]
+
+    def _round_metrics(m: dict) -> dict:
+        return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in m.items()}
+
+    backtest_folds = [
+        {
+            "fold": r["fold"],
+            "test_start": r["test_start"],
+            "test_end": r["test_end"],
+            "n_train": r["n_train"],
+            "n_test": r["n_test"],
+            "MAPE_pct": round(r.get("MAPE_pct", r.get("MAPE", 0)), 4),
+            "MAE": round(r.get("MAE", 0), 2),
+            "RMSE": round(r.get("RMSE", 0), 2),
+            "signed_error": round(r.get("signed_error", 0), 2),
+        }
+        for r in fold_results
+    ]
+
+    analytics = {
+        "run_date": run_date,
+        "n_train": n_train,
+        "n_test": n_test,
+        "metrics": {k: _round_metrics(v) for k, v in all_metrics.items()},
+        "backtest_folds": backtest_folds,
+        "bias_by_flat_type": _df_to_records(seg_results.get("flat_type", pd.DataFrame())),
+        "bias_by_town": _df_to_records(seg_results.get("town", pd.DataFrame())),
+        "bias_by_price_band": _df_to_records(price_band),
+        "feature_importance_top20": _df_to_records(fi_df.head(20)),
+    }
+
+    out_path = f"{cfg['data']['reports_dir']}/analytics.json"
+    storage.write_json(analytics, out_path)
+    logger.info("analytics.json → %s", out_path)
 
 
 # ---------------------------------------------------------------------------
@@ -483,12 +544,31 @@ def main(argv: list[str] | None = None) -> None:
         df_train, dropped_cols = _run_collinearity(cfg, df_train)
 
     # --- Train ---
+    all_metrics: dict | None = None
+    fi_df: "pd.DataFrame | None" = None
     if run_all or args.train:
-        _run_train(cfg, df_train, df_test, dropped_cols, run_date)
+        _, all_metrics, fi_df = _run_train(cfg, df_train, df_test, dropped_cols, run_date)
 
     # --- Backtest ---
+    fold_results: list[dict] | None = None
+    seg_results: dict | None = None
+    price_band: "pd.DataFrame | None" = None
     if run_all or args.backtest:
-        _run_backtest(cfg, df_train, df_test, dropped_cols)
+        fold_results, seg_results, price_band = _run_backtest(cfg, df_train, df_test, dropped_cols)
+
+    # --- Analytics summary (dashboard feed) ---
+    if all_metrics is not None and fold_results is not None:
+        _write_analytics_summary(
+            cfg,
+            run_date,
+            all_metrics,
+            fold_results,
+            seg_results or {},
+            price_band if price_band is not None else pd.DataFrame(),
+            fi_df if fi_df is not None else pd.DataFrame(),
+            n_train=len(df_train),
+            n_test=len(df_test),
+        )
 
     logger.info("Pipeline complete. Reports in %s/", cfg["data"]["reports_dir"])
 
