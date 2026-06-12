@@ -27,34 +27,113 @@ This project started as a university course project (NUS CS3244) and was rebuilt
 
 ---
 
-## How data flows
+## System architecture
 
 ```
-External APIs                    AWS                              Browser
-─────────────                    ───────────────────────────      ───────
-data.gov.sg     ─┐               EventBridge (07:00 SGT daily)
-OneMap geocode  ─┼─ ingest ───▶  ECS Fargate batch job
-macro CSVs      ─┘               │
-                                 │  1. fetch + validate + featurise
-                                 │  2. VIF pruning → train ensemble
-                                 │  3. walk-forward backtest
-                                 │  4. write analytics.json
-                                 ▼
-                           S3 (artifacts)
-                           ├─ models/latest.json        ◀── FastAPI reads on startup
-                           ├─ models/date=YYYY-MM-DD/   ◀── bundle: pkl + manifest
-                           └─ reports/date=YYYY-MM-DD/
-                                └─ analytics.json       ◀── Vercel reads hourly
-                                                              │
-                                          Vercel             │
-                                          /api/analytics ────┘  (ISR, 1-hr cache)
-                                          /api/predict ──────▶  FastAPI /predict
-                                          /             ─────▶  dashboard page
-                                                                      │
-                                                               User's browser
-                                                               views metrics,
-                                                               submits price form
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  EXTERNAL DATA SOURCES                                                       ║
+║                                                                              ║
+║  ┌─────────────────────┐  ┌────────────────────┐  ┌──────────────────────┐  ║
+║  │   data.gov.sg API   │  │    OneMap API      │  │  Macro indicators    │  ║
+║  │  HDB resale records │  │  building geocode  │  │  SORA · CPI · RPI    │  ║
+║  │  232 k transactions │  │  school geocode    │  │  GDP · unemployment  │  ║
+║  └──────────┬──────────┘  └─────────┬──────────┘  └──────────┬───────────┘  ║
+╚═════════════╪═════════════════════════╪═════════════════════════╪════════════╝
+              │  ① paginated fetch      │  ② geocode addresses    │  ③ lag-merge
+              │    with retry (429)     │    block + street       │    1 month guard
+              └─────────────────────────┴─────────────────────────┘
+                                        │
+                     ┌──────────────────┘
+                     │  EventBridge cron  07:00 SGT  (daily)
+                     ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  AWS  —  ECS FARGATE  BATCH PIPELINE                                         ║
+║                                                                              ║
+║  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌─────────────┐  ┌─────────┐  ║
+║  │  ingest  │─▶│ validate │─▶│  features  │─▶│ collinearity│─▶│  train  │  ║
+║  │          │  │          │  │            │  │             │  │         │  ║
+║  │ fetch tx │  │ pandera  │  │ 197 feats  │  │ Pearson r   │  │  LGBM   │  ║
+║  │ geocode  │  │ schema   │  │ building   │  │ VIF < 10    │  │ XGBoost │  ║
+║  │ macro lag│  │ PSI/KS   │  │ spatial    │  │ iterative   │  │ ensemble│  ║
+║  │          │  │ drift    │  │ macro      │  │ pruning     │  │ weight  │  ║
+║  └──────────┘  └──────────┘  └────────────┘  └─────────────┘  └────┬────┘  ║
+║                                                                      │       ║
+║                                                               ┌──────▼────┐  ║
+║                                                               │ backtest  │  ║
+║                                                               │ 16-fold   │  ║
+║                                                               │ walk-fwd  │  ║
+║                                                               │ bias diag │  ║
+║                                                               └──────┬────┘  ║
+╚══════════════════════════════════════════════════════════════════════╪═══════╝
+          ④ writes CSVs                                        ⑤ writes artifacts
+          ┌───────────────────────────────────────────────────────────┘
+          │
+          ▼
+╔═══════════════════════════╗    ╔══════════════════════════════════════════════╗
+║  S3  —  DATA BUCKET       ║    ║  S3  —  ARTIFACTS BUCKET                     ║
+║                           ║    ║                                              ║
+║  raw/                     ║    ║  models/                                     ║
+║  ├─ resale_transactions   ║    ║  ├─ latest.json                              ║
+║  ├─ building_info         ║    ║  │   { model_prefix, reports_prefix,         ║
+║  ├─ mrt_lrt_data          ║    ║  │     run_date, metrics }                   ║
+║  └─ schools               ║    ║  └─ date=YYYY-MM-DD/                         ║
+║                           ║    ║       ├─ avm_ensemble.pkl                    ║
+║  interim/                 ║    ║       ├─ preprocessor.pkl                    ║
+║  └─ combined.csv          ║    ║       ├─ feature_names.json                  ║
+║                           ║    ║       └─ manifest.json                       ║
+║  processed/               ║    ║                                              ║
+║  ├─ train.csv             ║    ║  reports/date=YYYY-MM-DD/                    ║
+║  └─ test.csv              ║    ║  ├─ analytics.json   ← dashboard feed        ║
+║                           ║    ║  ├─ model_metrics.csv                        ║
+║                           ║    ║  ├─ feature_importance.csv                   ║
+║                           ║    ║  ├─ backtest_metrics.csv                     ║
+║                           ║    ║  └─ backtest_bias_*.csv / *.png              ║
+╚═══════════════════════════╝    ╚═══════════════════════╤════════════════════════╝
+                                                         │
+                  ┌──────────────────────────────────────┤
+                  │  ⑥ read latest.json                  │  ⑦ read analytics.json
+                  │    load bundle on startup             │    s3:GetObject  (read-only IAM)
+                  ▼                                       ▼
+╔══════════════════════════════════╗  ╔═════════════════════════════════════════════╗
+║  AWS ECS SERVICE  —  FastAPI     ║  ║  VERCEL  —  Next.js 14 App Router           ║
+║                                  ║  ║                                             ║
+║  on startup:                     ║  ║  app/page.tsx          ISR revalidate=3600  ║
+║    read latest.json → load pkl   ║  ║  ├─ MetricsCard         MAE / RMSE / MAPE  ║
+║    hot-swap on /refresh          ║  ║  ├─ BacktestChart        fold MAE + bias   ║
+║                                  ║  ║  ├─ BiasChart            town / flat type  ║
+║  POST /predict                   ║  ║  ├─ FeatureImportance    top-20 features   ║
+║    preprocess → ensemble.predict ║  ║  └─ PredictForm          live estimator    ║
+║    <50 ms p95                    ║  ║                                             ║
+║                                  ║  ║  app/api/analytics/    S3 read, 1-hr cache ║
+║  GET  /model-info  manifest      ║  ║  app/api/predict/      proxy → FastAPI     ║
+║  GET  /healthz     liveness      ║  ║                        injects X-Api-Key   ║
+║  GET  /readyz      readiness     ║  ║                        server-side only     ║
+║  GET  /metrics     Prometheus    ║  ║                                             ║
+╚═══════════════════╤══════════════╝  ╚══════════════════════╤══════════════════════╝
+                    │  ⑧ POST /predict                        │  ⑨ HTTPS
+                    │    X-Api-Key (injected by Vercel)        │
+                    └────────────────────────────────────────▶│
+                                                              ▼
+                                                    ┌─────────────────┐
+                                                    │    Browser      │
+                                                    │  views charts   │
+                                                    │  submits form   │
+                                                    └─────────────────┘
 ```
+
+**Numbered flow:**
+
+| Step | What happens |
+|---|---|
+| ① | Pipeline fetches HDB resale records from data.gov.sg (paginated, retry on 429) |
+| ② | OneMap API geocodes each unique block+street to lat/lng; cached after first run |
+| ③ | Macro indicators (SORA, CPI, HDB RPI, GDP, unemployment) joined with 1-month lag to prevent data leakage |
+| ④ | Raw, interim, and processed CSVs written to the data S3 bucket (or local filesystem when `AVM_DATA_BUCKET` unset) |
+| ⑤ | Model bundle (pkl files + manifest) and `analytics.json` written to the artifacts S3 bucket under `date=YYYY-MM-DD/`; `latest.json` updated atomically last |
+| ⑥ | FastAPI service reads `latest.json` on startup to locate the bundle prefix, loads the pkl files, and holds the bundle as a thread-safe singleton |
+| ⑦ | Vercel server component reads `analytics.json` directly from S3 using a read-only IAM user (`s3:GetObject` only); result cached by ISR for 1 hour |
+| ⑧ | The Vercel `/api/predict` route proxies browser requests to FastAPI, injecting `X-Api-Key` server-side so the key is never exposed to the client |
+| ⑨ | Browser receives rendered HTML + Recharts components; price form calls `/api/predict` via `fetch()` |
 
 ---
 
